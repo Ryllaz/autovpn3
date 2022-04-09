@@ -103,9 +103,6 @@ if [ -z ${proxyPort+x} ]; then proxyPort=8080; else proxyPort=${proxyPort}; fi
 # socks or http
 if [ -z ${proxyType+x} ]; then proxyType='socks'; else proxyType=${proxyType}; fi
 
-echo ${proxyType}
-exit 1
-
 # don't change this:
 counter=0
 VPNproxyString=''
