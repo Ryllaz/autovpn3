@@ -6,7 +6,7 @@ Autovpn3 script ready for pleasant using.
 1. `git clone https://github.com/Ryllaz/autovpn3.git`
 2. `cd autovpn3`
 3. `chmod +x autovpn3`
-4. (optional) `mv autovpn3 /usr/local/bin/autovpn3`. Then you will be able to run this script globally: `sudo autovpn3`.
+4. (optional) `sudo mv autovpn3 /usr/local/bin/autovpn3`. Then you will be able to run this script globally: `sudo autovpn3`.
 
 ## Usage
 
