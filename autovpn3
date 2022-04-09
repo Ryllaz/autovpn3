@@ -1,8 +1,84 @@
 #!/bin/bash
- 
+# shellcheck disable=SC2221
+# shellcheck disable=SC2034
+# shellcheck disable=SC2222
+# shellcheck disable=SC2004
+
 # autovpn3, coded by MiAl
- 
+
+function styling_print() {
+    GREEN="$(tput setaf 2)"
+    BLUE=$(tput setaf 4)
+    NORMAL=$(tput sgr0)
+
+    printf "${GREEN}%-20s${BLUE}\t%-20s${NORMAL}\t%s\n" "$1" "$2" "$3"
+}
+
+function show_help() {
+    printf "Usage: autovpn3 [--arg1=val1 --arg2=val2 --arg3=val3 ...]\n"
+    printf "Arguments list:\n"
+
+    styling_print "ARGUMENT_NAME" "DEFAULT_VALUE" "DESCRIPTION"
+    styling_print "-------------" "-------------" "-----------"
+    styling_print "country" "US" "Set country with servers location. Set empty for any or JP, KR, US, TH, etc."
+    styling_print "useSavedVPNlist" "0" "Set to 1 if you don't want to download VPN list every time you restart this script, otherwise set to 0"
+    styling_print "useFirstServer" "0" "Set to 0 to choose a random VPN server, otherwise set to 1 (maybe the first one has higher score)"
+    styling_print "vpnList" "'/tmp/vpns.tmp'" ""
+    styling_print "proxy" "0" "Replace with 1 if you want to connect to VPN server through a proxy"
+    styling_print "proxyIP" "''" ""
+    styling_print "proxyPort" "8080" ""
+    styling_print "proxyType" "socks" "socks or http"
+}
+
 # get environment variables and set default values if they are not set
+
+for i in "$@"; do
+    case $i in
+    --country=*)
+        country="${i#*=}"
+        shift
+        ;;
+    --useSavedVPNlist=*)
+        useSavedVPNlist="${i#*=}"
+        shift
+        ;;
+    --useFirstServer=*)
+        useFirstServer="${i#*=}"
+        shift
+        ;;
+    --vpnList=*)
+        vpnList="${i#*=}"
+        shift
+        ;;
+    --proxy=*)
+        proxy="${i#*=}"
+        shift
+        ;;
+    --proxyIp=*)
+        proxyIp="${i#*=}"
+        shift
+        ;;
+    --proxyPort=*)
+        proxyPort="${i#*=}"
+        shift
+        ;;
+    --proxyType=*)
+        proxyType="${i#*=}"
+        shift
+        ;;
+    --help)
+        show_help
+        exit 1
+        ;;
+    -* | --*)
+        echo "Unknown option $i"
+        show_help
+        exit 1
+        ;;
+    *) ;;
+
+    esac
+done
 
 # you can change following parameters
 
@@ -26,72 +102,74 @@ if [ -z ${proxyPort+x} ]; then proxyPort=8080; else proxyPort=${proxyPort}; fi
 
 # socks or http
 if [ -z ${proxyType+x} ]; then proxyType='socks'; else proxyType=${proxyType}; fi
- 
+
+echo ${proxyType}
+exit 1
+
 # don't change this:
 counter=0
 VPNproxyString=''
 cURLproxyString=''
- 
-if [ $proxy -eq 1 ];then
+
+if [ $proxy -eq 1 ]; then
     echo 'We will use a proxy'
     if [ -z "$proxyIP" ]; then
         echo "To use a proxy, you must specify the proxy's IP address and port (hardcoded in the source code)."
         exit
     else
-        if [ "$proxyType" == "socks" ];then
+        if [ "$proxyType" == "socks" ]; then
             VPNproxyString=" --socks-proxy $proxyIP $proxyPort "
             cURLproxyString=" --proxy socks5h://$proxyIP:$proxyPort "
-        elif [ "$proxyType" == "http" ];then
+        elif [ "$proxyType" == "http" ]; then
             VPNproxyString=" --http-proxy $proxyIP $proxyPort "
             cURLproxyString=" --proxy http://$proxyIP:$proxyPort "
         else
             echo 'Unsupported proxy type.'
-            exit   
-        fi 
+            exit
+        fi
     fi
 fi
- 
-if [ $useSavedVPNlist -eq 0 ];then
+
+if [ $useSavedVPNlist -eq 0 ]; then
     echo 'Getting the VPN list'
-    curl -s $cURLproxyString https://www.vpngate.net/api/iphone/ > $vpnList
-elif [ ! -s $vpnList ];then
+    curl -s "$cURLproxyString" https://www.vpngate.net/api/iphone/ >$vpnList
+elif [ ! -s $vpnList ]; then
     echo 'Getting the VPN list'
-    curl -s $cURLproxyString https://www.vpngate.net/api/iphone/ > $vpnList  
+    curl -s "$cURLproxyString" https://www.vpngate.net/api/iphone/ >$vpnList
 else
     echo 'Using existing VPN list'
 fi
- 
-while read -r line ; do
+
+while read -r line; do
     array[$counter]="$line"
     counter=$counter+1
 done < <(grep -E ",$country" $vpnList)
- 
-CreateVPNConfig () {
+
+CreateVPNConfig() {
     if [ -z "${array[0]}" ]; then
         echo 'No VPN servers found from the selected country.'
         exit
     fi
- 
-    size=${#array[@]}
- 
+
+    size="${#array[@]}"
+
     if [ $useFirstServer -eq 1 ]; then
         index=0
-        echo ${array[$index]} | awk -F "," '{ print $15 }' | base64 -d > /tmp/openvpn3
-    else       
-        index=$(($RANDOM % $size))
-        echo ${array[$index]} | awk -F "," '{ print $15 }' | base64 -d > /tmp/openvpn3
+        echo "${array[$index]}" | awk -F "," '{ print $15 }' | base64 -d >/tmp/openvpn3
+    else
+        index="$(($RANDOM % $size))"
+        echo "${array[$index]}" | awk -F "," '{ print $15 }' | base64 -d >/tmp/openvpn3
     fi
- 
+
     echo 'Choosing a VPN server:'
-    echo "Found VPN servers: $((size+1))"
+    echo "Found VPN servers: $((size + 1))"
     echo "Selected: $index"
-    echo "Country: `echo ${array[$index]} | awk -F "," '{ print $6 }'`"   
+    echo "Country: $(echo "${array[$index]}" | awk -F "," '{ print $6 }')"
 }
- 
-while true
-    do
-        CreateVPNConfig
-        echo 'Trying to start OpenVPN client'
-        sudo openvpn --config /tmp/openvpn3 $VPNproxyString
-        read -p "Try another VPN server? (Y/N): " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit
-    done
+
+while true; do
+    CreateVPNConfig
+    echo 'Trying to start OpenVPN client'
+    sudo openvpn --config /tmp/openvpn3 "$VPNproxyString"
+    read -pr "Try another VPN server? (Y/N): " confirm && [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]] || exit
+done
